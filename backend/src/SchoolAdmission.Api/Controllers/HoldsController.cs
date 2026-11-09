@@ -10,7 +10,9 @@ namespace SchoolAdmission.Api.Controllers;
 
 [ApiController]
 public class HoldsController(AppDbContext db, HoldSettings settings) : ControllerBase
-{
+{   
+        private const string BadStudentIdMessage =
+        "X-Student-Id header must be the student's 17-digit birth registration number.";
     [HttpPost("classes/{classId}/holds")]
     public async Task<IActionResult> Create(string classId)
     {
@@ -72,4 +74,44 @@ public class HoldsController(AppDbContext db, HoldSettings settings) : Controlle
                 hold.Id, hold.ClassId,
                 HoldMapper.EffectiveStatus(hold, DateTime.UtcNow), hold.ExpiresAt));
         }
+            [HttpPost("holds/{holdId}/confirm")]
+    public async Task<IActionResult> Confirm(string holdId)
+    {
+        if (!StudentIdHeader.TryGet(Request, out var studentId))
+            return BadRequest(new { error = BadStudentIdMessage });
+
+        await using var tx = await db.Database.BeginTransactionAsync();
+
+        // Ei hold er row lock: confirm ar cancel ek shathe elew ekta-i jitbe
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT 1 FROM \"Holds\" WHERE \"Id\" = {holdId} FOR UPDATE");
+
+        var hold = await db.Holds.FirstOrDefaultAsync(h => h.Id == holdId);
+        if (hold is null)
+            return NotFound(new { error = "Application not found." });
+        if (hold.StudentId != studentId)
+            return StatusCode(StatusCodes.Status403Forbidden,
+                new { error = "This application belongs to another student." });
+
+        // Abar confirm korle kichu bodlay na, tai confirmedSeats ekbar-i bare
+        if (hold.Status == HoldStatus.Confirmed)
+            return Ok(new ConfirmResponse(hold.Id, "CONFIRMED"));
+        if (hold.Status == HoldStatus.Cancelled)
+            return Conflict(new { error = "This application was cancelled." });
+
+        var now = DateTime.UtcNow;
+        if (hold.Status == HoldStatus.Expired || hold.ExpiresAt <= now)
+        {
+            hold.Status = HoldStatus.Expired;
+            await db.SaveChangesAsync();
+            await tx.CommitAsync();
+            return Conflict(new { error = "The payment time for this application has expired." });
+        }
+
+        hold.Status = HoldStatus.Confirmed;
+        await db.SaveChangesAsync();
+        await tx.CommitAsync();
+
+        return Ok(new ConfirmResponse(hold.Id, "CONFIRMED"));
+    }
 }
