@@ -144,4 +144,21 @@ public class HoldsController(AppDbContext db, HoldSettings settings) : Controlle
 
         return NoContent();
     }
+        [HttpGet("me/holds")]
+    public async Task<IActionResult> MyHolds()
+    {
+        if (!StudentIdHeader.TryGet(Request, out var studentId))
+            return BadRequest(new { error = BadStudentIdMessage });
+
+        var holds = await db.Holds.AsNoTracking()
+            .Include(h => h.Class)
+            .Where(h => h.StudentId == studentId)
+            .OrderByDescending(h => h.CreatedAt)
+            .ToListAsync();
+
+        var now = DateTime.UtcNow;
+        return Ok(holds.Select(h => new MyHoldResponse(
+            h.Id, h.ClassId, h.Class!.Name,
+            HoldMapper.EffectiveStatus(h, now), h.ExpiresAt)));
+    }
 }
