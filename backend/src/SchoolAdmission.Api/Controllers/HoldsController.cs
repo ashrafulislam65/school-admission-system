@@ -59,5 +59,17 @@ public class HoldsController(AppDbContext db, HoldSettings settings) : Controlle
         return Created($"/holds/{hold.Id}", new HoldCreatedResponse(
             hold.Id, hold.ClassId, hold.StudentId,
             HoldMapper.EffectiveStatus(hold, now), hold.ExpiresAt));
+        
     }
+    [HttpGet("holds/{holdId}")]
+        public async Task<IActionResult> GetById(string holdId)
+        {
+            var hold = await db.Holds.AsNoTracking().FirstOrDefaultAsync(h => h.Id == holdId);
+            if (hold is null)
+                return NotFound(new { error = "Application not found." });
+
+            return Ok(new HoldResponse(
+                hold.Id, hold.ClassId,
+                HoldMapper.EffectiveStatus(hold, DateTime.UtcNow), hold.ExpiresAt));
+        }
 }
