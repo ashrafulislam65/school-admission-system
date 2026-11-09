@@ -1,9 +1,14 @@
 import { useState } from 'react'
+import ClassList from './components/ClassList'
+import CreateClass from './components/CreateClass'
 import Login from './components/Login'
 import { clearStudentId, getStudentId, setStudentId } from './session'
 
+type Tab = 'classes' | 'create'
+
 export default function App() {
   const [studentId, setId] = useState<string | null>(getStudentId())
+  const [tab, setTab] = useState<Tab>('classes')
 
   function handleLogin(id: string) {
     setStudentId(id)
@@ -31,7 +36,21 @@ export default function App() {
         </div>
       </header>
       <main className="content">
-        <p className="muted">Logged in. Classes will appear here.</p>
+        <nav className="tabs">
+          <button
+            className={`tab ${tab === 'classes' ? 'active' : ''}`}
+            onClick={() => setTab('classes')}
+          >
+            Classes
+          </button>
+          <button
+            className={`tab ${tab === 'create' ? 'active' : ''}`}
+            onClick={() => setTab('create')}
+          >
+            Create class
+          </button>
+        </nav>
+        {tab === 'classes' ? <ClassList /> : <CreateClass />}
       </main>
     </div>
   )
