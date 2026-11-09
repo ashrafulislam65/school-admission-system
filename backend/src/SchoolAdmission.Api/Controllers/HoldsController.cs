@@ -114,4 +114,34 @@ public class HoldsController(AppDbContext db, HoldSettings settings) : Controlle
 
         return Ok(new ConfirmResponse(hold.Id, "CONFIRMED"));
     }
+        [HttpDelete("holds/{holdId}")]
+    public async Task<IActionResult> Cancel(string holdId)
+    {
+        if (!StudentIdHeader.TryGet(Request, out var studentId))
+            return BadRequest(new { error = BadStudentIdMessage });
+
+        await using var tx = await db.Database.BeginTransactionAsync();
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT 1 FROM \"Holds\" WHERE \"Id\" = {holdId} FOR UPDATE");
+
+        var hold = await db.Holds.FirstOrDefaultAsync(h => h.Id == holdId);
+        if (hold is null)
+            return NotFound(new { error = "Application not found." });
+        if (hold.StudentId != studentId)
+            return StatusCode(StatusCodes.Status403Forbidden,
+                new { error = "This application belongs to another student." });
+
+        if (hold.Status == HoldStatus.Cancelled)
+            return NoContent();
+        if (hold.Status == HoldStatus.Confirmed)
+            return Conflict(new { error = "A confirmed admission cannot be cancelled." });
+        if (hold.Status == HoldStatus.Expired || hold.ExpiresAt <= DateTime.UtcNow)
+            return Conflict(new { error = "This application has already expired." });
+
+        hold.Status = HoldStatus.Cancelled;
+        await db.SaveChangesAsync();
+        await tx.CommitAsync();
+
+        return NoContent();
+    }
 }
