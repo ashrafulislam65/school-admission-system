@@ -2,9 +2,10 @@ import { useState } from 'react'
 import ClassList from './components/ClassList'
 import CreateClass from './components/CreateClass'
 import Login from './components/Login'
+import MyApplications from './components/MyApplications'
 import { clearStudentId, getStudentId, setStudentId } from './session'
 
-type Tab = 'classes' | 'create'
+type Tab = 'classes' | 'applications' | 'create'
 
 export default function App() {
   const [studentId, setId] = useState<string | null>(getStudentId())
@@ -18,6 +19,7 @@ export default function App() {
   function handleLogout() {
     clearStudentId()
     setId(null)
+    setTab('classes')
   }
 
   if (!studentId) return <Login onLogin={handleLogin} />
@@ -37,20 +39,22 @@ export default function App() {
       </header>
       <main className="content">
         <nav className="tabs">
-          <button
-            className={`tab ${tab === 'classes' ? 'active' : ''}`}
-            onClick={() => setTab('classes')}
-          >
+          <button className={`tab ${tab === 'classes' ? 'active' : ''}`} onClick={() => setTab('classes')}>
             Classes
           </button>
           <button
-            className={`tab ${tab === 'create' ? 'active' : ''}`}
-            onClick={() => setTab('create')}
+            className={`tab ${tab === 'applications' ? 'active' : ''}`}
+            onClick={() => setTab('applications')}
           >
+            My applications
+          </button>
+          <button className={`tab ${tab === 'create' ? 'active' : ''}`} onClick={() => setTab('create')}>
             Create class
           </button>
         </nav>
-        {tab === 'classes' ? <ClassList /> : <CreateClass />}
+        {tab === 'classes' && <ClassList onViewApplications={() => setTab('applications')} />}
+        {tab === 'applications' && <MyApplications />}
+        {tab === 'create' && <CreateClass />}
       </main>
     </div>
   )
