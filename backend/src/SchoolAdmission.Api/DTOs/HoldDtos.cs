@@ -12,3 +12,12 @@ public record HoldResponse(
     string ClassId,
     string Status,
     DateTime ExpiresAt);
+
+public record ConfirmResponse(string HoldId, string Status);
+
+public record MyHoldResponse(
+    string HoldId,
+    string ClassId,
+    string ClassName,
+    string Status,
+    DateTime ExpiresAt);
